@@ -23,7 +23,6 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          # If your Dockerfile is NOT in the repo root, also add:
-          # file: ./path/to/Dockerfile
+          file: ./Dockerfile
           push: true
           tags: anasag007/devopsfinal:latest
