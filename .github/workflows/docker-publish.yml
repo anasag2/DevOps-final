@@ -1,62 +1,34 @@
-name: DockerHub Auth & Push Diag (anasag007)
+name: Build & Push to Docker Hub (single-step build)
 
 on:
-  workflow_dispatch:
   push:
     branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
   docker:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
-      # 1) Show token length (should be > 20). This does NOT reveal the token.
-      - name: Check token length
+      - name: Build docker image
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}   # anasag007
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
-          LEN=$(printf %s "${{ secrets.DOCKERHUB_TOKEN }}" | wc -c | tr -d ' ')
-          echo "Token length: $LEN"
-          if [ "$LEN" -lt 20 ]; then
-            echo "Token looks empty/invalid. Rotate DOCKERHUB_TOKEN."
-            exit 1
-          fi
+          set -e
+          IMAGE="${DOCKERHUB_USERNAME}/devopsfinal"
 
-      # 2) Login explicitly to docker.io with hard-coded username
-      - name: Login to Docker Hub (manual)
-        run: |
-          printf %s "${{ secrets.DOCKERHUB_TOKEN }}" | docker login docker.io -u "anasag007" --password-stdin
+          # Login
+          echo "${DOCKERHUB_TOKEN}" | docker login docker.io -u "${DOCKERHUB_USERNAME}" --password-stdin
 
-      # 3) Verify who we are logged in as
-        # This MUST print: "Username: anasag007"
-      - name: Confirm login identity
-        run: |
-          docker info | sed -n 's/^ Username: /Username: /p'
-          if ! docker info | grep -q 'Username: anasag007'; then
-            echo "❌ Not logged in as anasag007. Fix secrets/username."
-            exit 1
-          fi
+          # Build (Dockerfile at repo root)
+          docker build -t "${IMAGE}:latest" -f ./Dockerfile .
 
-      # 4) Build a tiny test image inline and push it (to isolate issues)
-      - name: Build tiny test image
-        run: |
-          cat > Dockerfile.diag <<'EOF'
-          FROM alpine:3.20
-          CMD ["echo","hello-from-ci"]
-          EOF
-          docker build -t anasag007/devopsfinal:testlogin -f Dockerfile.diag .
+          # (optional) also tag with commit SHA
+          docker tag "${IMAGE}:latest" "${IMAGE}:${GITHUB_SHA}"
 
-      - name: Push tiny test image
-        run: |
-          docker push anasag007/devopsfinal:testlogin
-
-      # 5) If tiny push works, push your real image
-      - name: Build and push your repo image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./Dockerfile
-          push: true
-          tags: |
-            anasag007/devopsfinal:latest
-            anasag007/devopsfinal:${{ github.sha }}
+          # Push
+          docker push "${IMAGE}:latest"
+          docker push "${IMAGE}:${GITHUB_SHA}"
