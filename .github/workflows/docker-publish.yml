@@ -1,37 +1,5 @@
-name: Build & Push to Docker Hub (diag)
-
-on:
-  workflow_dispatch:
-  push:
-    branches: [ "main" ]
-
-jobs:
-  docker:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-
-      - name: Log in to Docker Hub
-        id: login
-        uses: docker/login-action@v3
-        with:
-          registry: docker.io
-          username: ${{ secrets.DOCKERHUB_USERNAME }}   # should be: anasag007
-          password: ${{ secrets.DOCKERHUB_TOKEN }}      # fresh access token
-
-      - name: Confirm login identity (must show Username: anasag007)
-        run: |
-          docker info | sed -n 's/^ Username: /Username: /p' || true
-          if ! docker info | grep -q 'Username: anasag007'; then
-            echo "❌ Not logged in as expected user (anasag007). Check DOCKERHUB_USERNAME/DOCKERHUB_TOKEN secrets."
-            exit 1
-          fi
-
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./Dockerfile
-          push: true
-          tags: anasag007/devopsfinal:latest
+uses: docker/login-action@v3
+with:
+  registry: docker.io
+  username: ${{ secrets.DOCKERHUB_USERNAME }}
+  password: ${{ secrets.DOCKERHUB_TOKEN }}
